@@ -11,6 +11,8 @@ from google.protobuf import json_format
 from google.protobuf.struct_pb2 import Value
 from pydub import AudioSegment
 
+from composer.utils.audio import convert_mp3
+
 loggger = logging.getLogger(__name__)
 
 async def generate_music_tool(prompt: str, negative_prompt: str, seed: int, sample_count: int, tool_context: ToolContext):
@@ -49,6 +51,8 @@ async def generate_music_tool(prompt: str, negative_prompt: str, seed: int, samp
         if sample_count:
             params["sample_count"] = sample_count
 
+        loggger.info(f"Generate music params: {params}")
+
         instance = json_format.ParseDict(params, Value())
         instances = [instance]
 
@@ -70,15 +74,8 @@ async def generate_music_tool(prompt: str, negative_prompt: str, seed: int, samp
             decoded_audio_data = base64.b64decode(bytes_b64)
             audio_segment = AudioSegment.from_wav(io.BytesIO(decoded_audio_data))
 
-            out = io.BytesIO()
-            try:
-                audio_segment.export(out, format="mp3", bitrate="192k")
-            except Exception as e:
-                loggger.exception(f"failed to export mp3 audio {e}, retrying with local ffmpeg")
-                audio_segment.converter = "composer/ffmpeg-7.0.2-amd64-static/ffmpeg"
-                audio_segment.export(out, format="mp3", bitrate="192k")
-
-            part = types.Part.from_bytes(data=out.getvalue(), mime_type="audio/mp3")
+            mp3bytes = convert_mp3(audio_segment)
+            part = types.Part.from_bytes(data=mp3bytes, mime_type="audio/mp3")
             artifact_id = uuid.uuid4().hex
             await tool_context.save_artifact(artifact_id, part)
             mp3_list.append(artifact_id)

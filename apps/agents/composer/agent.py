@@ -10,15 +10,18 @@ from google.genai import types
 
 from .prompts import instructions
 from .sub_agents.composer.agent import root_agent as composer_agent
-
+from .sub_agents.long_composer.agent import root_agent as long_composer_agent
 if "GOOGLE_CLOUD_AGENT_ENGINE_ID" in os.environ:
     # run on agent engine
     import google.cloud.logging
 
     client = google.cloud.logging.Client()
     client.setup_logging()
+else:
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)')
 
 call_composer_agent = AgentTool(composer_agent)
+call_long_composer_agent = AgentTool(long_composer_agent)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +58,6 @@ root_agent = Agent(
     name='root_agent',
     description='A helpful assistant for user questions.',
     instruction=instructions(),
-    tools=[call_composer_agent],
+    tools=[call_composer_agent, call_long_composer_agent],
     after_model_callback=load_artifact
 )
