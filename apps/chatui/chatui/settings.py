@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-BackendType = Literal['agentengine', 'remote']
+BackendType = Literal['agentengine', 'remote', 'local', 'agentenginerest']
 
 class Settings(BaseSettings):
     GOOGLE_CLOUD_PROJECT: str

@@ -17,18 +17,21 @@ if "GOOGLE_CLOUD_AGENT_ENGINE_ID" in os.environ:
 
     client = google.cloud.logging.Client()
     client.setup_logging()
-else:
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)')
-
-call_composer_agent = AgentTool(composer_agent)
-call_long_composer_agent = AgentTool(long_composer_agent)
+# else:
+#     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)')
 
 logger = logging.getLogger(__name__)
 
 async def load_artifact(callback_context: CallbackContext, llm_response: LlmResponse) -> LlmResponse:
 
     if not callback_context.state.get("music_artifact_list"):
+        logger.info("No music artifacts to load")
         return llm_response
+    if llm_response.content and llm_response.content.parts:
+        for part in llm_response.content.parts:
+            if part.text and "<artifact>" in part.text:
+                logger.info("Found artifact tag in response")
+                return llm_response
 
     parts_new = copy.deepcopy(llm_response.content.parts)
     for filename in callback_context.state.get("music_artifact_list"):
@@ -54,10 +57,10 @@ async def load_artifact(callback_context: CallbackContext, llm_response: LlmResp
 
 
 root_agent = Agent(
-    model='gemini-2.0-flash',
+    model='gemini-2.5-flash-lite',
     name='root_agent',
     description='A helpful assistant for user questions.',
     instruction=instructions(),
-    tools=[call_composer_agent, call_long_composer_agent],
+    tools=[AgentTool(composer_agent), AgentTool(long_composer_agent)],
     after_model_callback=load_artifact
 )

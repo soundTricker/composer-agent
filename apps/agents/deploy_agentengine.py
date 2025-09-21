@@ -1,11 +1,10 @@
 import json
 import os
 
-import requests
+import dotenv
 import vertexai
 from google.adk.artifacts import GcsArtifactService
 from vertexai import agent_engines
-import dotenv
 
 dotenv.load_dotenv()
 vertexai.init(
@@ -25,33 +24,26 @@ def deploy_agentengine():
     from composer.agent import root_agent
     from composer.agentengine import CustomAdkApp
 
-    adk_app = CustomAdkApp(agent=root_agent, enable_tracing=True, artifact_service_builder=generate_artifact_service)
-
-    if not os.path.exists("composer/ffmpeg-7.0.2-amd64-static"):
-        res = requests.get("https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz")
-        res.raise_for_status()
-        with open("composer/ffmpeg-release-amd64-static.tar.xz", mode='wb') as fp:
-            fp.write(res.content)
-
-        import tarfile
-        with tarfile.open("composer/ffmpeg-release-amd64-static.tar.xz", mode='r:xz') as tar:
-            tar.extractall("composer")
-        os.remove("composer/ffmpeg-release-amd64-static.tar.xz")
+    adk_app = CustomAdkApp(
+        agent=root_agent,
+        enable_tracing=True,
+        artifact_service_builder=generate_artifact_service
+    )
 
     packages = [
-        "composer"
+        "composer",
+        "installation_scripts/install.sh"
     ]
 
-    # TODO https://github.com/google/adk-python/issues/808
     requirements = [
-        "google-adk==0.5.0",
+        "google-adk==1.14.1",
         "pydub>=0.25.1",
-        "google-cloud-aiplatform[adk, agent_engines]==1.94.0",
-        "nest-asyncio>=1.6.0"
+        "google-cloud-aiplatform[adk, agent_engines]==1.115.0"
     ]
     display_name = "ComposerAgent"
 
-
+    env_vers = {"GEMINI_API_KEY": os.environ.get('GEMINI_API_KEY')}
+    build_options = {"installation_scripts": ["installation_scripts/install.sh"]}
     if os.path.isfile(SETTING_FILENAME):
         print("setting file found")
 
@@ -64,7 +56,9 @@ def deploy_agentengine():
                 agent_engine=adk_app,
                 display_name=display_name,
                 requirements=requirements,
-                extra_packages=packages
+                extra_packages=packages,
+                build_options=build_options,
+                env_vars=env_vers,
             )
         return
 
@@ -75,6 +69,8 @@ def deploy_agentengine():
         display_name=display_name,
         requirements=requirements,
         extra_packages=packages,
+        build_options=build_options,
+        env_vars=env_vers
     )
     print(f"Done creating new agent engine instance. resource name: {agent_engine.resource_name}")
     with open(SETTING_FILENAME, mode="w") as fp:

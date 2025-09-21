@@ -2,8 +2,8 @@ from pydantic import Field
 from .base import Base
 from google.genai import types
 
-class WeightedPrompt(Base):
 
+class WeightedPrompt(Base):
     text: str | None = Field(default=None, description="""Text prompt.""")
     weight: float | None = Field(
         default=None,
@@ -15,10 +15,13 @@ class WeightedPrompt(Base):
           LiveMusicClientContent message will be normalized.""",
     )
 
+
 class LiveMusicGenerationConfig(Base):
-    bpm: int = Field(description="Range: [60, 200]. Sets the Beats Per Minute you want for the generated music. You need to stop/play or reset the context for the model it take into account the new bpm.")
+    bpm: int = Field(
+        description="Range: [60, 200]. Sets the Beats Per Minute you want for the generated music. You need to stop/play or reset the context for the model it take into account the new bpm.")
     density: float | None = Field(
-        default=None, description="""Density of sounds. Range is [0.0, 1.0]. Controls the density of musical notes/sounds. Lower values produce sparser music; higher values produce "busier" music."""
+        default=None,
+        description="""Density of sounds. Range is [0.0, 1.0]. Controls the density of musical notes/sounds. Lower values produce sparser music; higher values produce "busier" music."""
     )
     brightness: float | None = Field(
         default=None,
@@ -28,19 +31,22 @@ class LiveMusicGenerationConfig(Base):
         default=None, description="""Scale of the generated music."""
     )
     mute_bass: bool | None = Field(
-          default=None,
-          description="""Whether the audio output should contain bass.""",
-      )
-    mute_drums: bool  | None = Field(
-          default=None,
-          description="""Whether the audio output should contain drums.""",
-      )
+        default=None,
+        description="""Whether the audio output should contain bass.""",
+    )
+    mute_drums: bool | None = Field(
+        default=None,
+        description="""Whether the audio output should contain drums.""",
+    )
     only_bass_and_drums: bool | None = Field(
-          default=None,
-          description="""Whether the audio output should contain only bass and drums.""",
-      )
-class MusicStanza(Base):
+        default=None,
+        description="""Whether the audio output should contain only bass and drums.""",
+    )
+    music_generation_mode: types.MusicGenerationMode | None = Field(description="""The mode of music generation.""",
+                                                                    default=None)
 
+
+class MusicStanza(Base):
     prompts: list[WeightedPrompt] = Field(description="prompt and weight list of this music stanza.")
     seconds: int = Field(description="this music stanza time length (seconds)")
     config: LiveMusicGenerationConfig = Field(description="music stanza config.")
@@ -49,9 +55,13 @@ class MusicStanza(Base):
         return [types.WeightedPrompt(text=p.text, weight=p.weight) for p in self.prompts]
 
     def to_gemini_config(self) -> types.LiveMusicGenerationConfig:
-        return types.LiveMusicGenerationConfig(bpm=self.config.bpm, density=self.config.density, brightness=self.config.brightness, scale=self.config.scale, mute_bass=self.config.mute_bass, mute_drums=self.config.mute_drums, only_bass_and_drums=self.config.only_bass_and_drums)
+        return types.LiveMusicGenerationConfig(bpm=self.config.bpm, density=self.config.density,
+                                               brightness=self.config.brightness, scale=self.config.scale,
+                                               mute_bass=self.config.mute_bass, mute_drums=self.config.mute_drums,
+                                               only_bass_and_drums=self.config.only_bass_and_drums,
+                                               music_generation_mode=self.config.music_generation_mode, )
+
 
 class MusicPlan(Base):
-
     title: str = Field(description="music title.")
     stanzas: list[MusicStanza] = Field(description="music stanza list.")

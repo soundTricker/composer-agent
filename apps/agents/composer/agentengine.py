@@ -13,14 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import asyncio
 from typing import Any, AsyncIterable
 
 from google.adk.agents.run_config import StreamingMode, RunConfig
 from google.adk.artifacts import BaseArtifactService
 from vertexai.preview import reasoning_engines
 
+
 class CustomAdkApp(reasoning_engines.AdkApp):
+    """An ADK Application."""
+
     def clone(self):
         """Returns a clone of the ADK application."""
         import copy
@@ -30,37 +32,60 @@ class CustomAdkApp(reasoning_engines.AdkApp):
             enable_tracing=self._tmpl_attrs.get("enable_tracing"),
             session_service_builder=self._tmpl_attrs.get("session_service_builder"),
             artifact_service_builder=self._tmpl_attrs.get("artifact_service_builder"),
+            env_vars=self._tmpl_attrs.get("env_vars"),
         )
-    """An ADK Application."""
+
+    def set_up(self):
+        super().set_up()
+
+        import os
+
+        import google.cloud.logging
+
+        self.logging_client = google.cloud.logging.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT"))
+        self.logging_client.setup_logging(
+            name="composer-agent.log",  # the ID of the logName in Cloud Logging.
+            resource=google.cloud.logging.Resource(
+                type="aiplatform.googleapis.com/ReasoningEngine",
+                labels={
+                    "location": "us-central1",
+                    "resource_container": os.environ.get("GOOGLE_CLOUD_PROJECT"),
+                    "reasoning_engine_id": os.environ.get("K_SERVICE", "").split("-")[-1],
+                },
+            ),
+        )
+
     def stream_query_sse(
-        self,
-        *,
-        message: str| dict[str, Any],
-        user_id: str,
-        session_id: str | None = None,
-        **kwargs,
+            self,
+            *,
+            message: str | dict[str, Any],
+            user_id: str,
+            session_id: str | None = None,
+            **kwargs,
     ):
-        return self.stream_query(message=message, user_id=user_id, session_id=session_id, run_config=RunConfig(streaming_mode=StreamingMode.SSE), **kwargs)
+        return self.stream_query(message=message, user_id=user_id, session_id=session_id,
+                                 run_config=RunConfig(streaming_mode=StreamingMode.SSE), **kwargs)
 
     async def async_stream_query_sse(
-        self,
-        *,
-        message: str| dict[str, Any],
-        user_id: str,
-        session_id: str | None = None,
-        **kwargs,
+            self,
+            *,
+            message: str | dict[str, Any],
+            user_id: str,
+            session_id: str | None = None,
+            **kwargs,
     ) -> AsyncIterable[dict[str, Any]]:
-        return self.async_stream_query(message=message, user_id=user_id, session_id=session_id, run_config=RunConfig(streaming_mode=StreamingMode.SSE), **kwargs)
+        return self.async_stream_query(message=message, user_id=user_id, session_id=session_id,
+                                       run_config=RunConfig(streaming_mode=StreamingMode.SSE), **kwargs)
 
-    def load_artifact(self, user_id: str, session_id: str, artifact_id: str, **kwargs):
-
-        import nest_asyncio
-        nest_asyncio.apply()
-
+    async def load_artifact(self, user_id: str, session_id: str, artifact_id: str, **kwargs):
         artifact_service: BaseArtifactService = self._tmpl_attrs["artifact_service"]
-        return asyncio.run(artifact_service.load_artifact(
-            app_name=self._tmpl_attrs.get("app_name"), user_id=user_id, session_id=session_id, filename=artifact_id)
-        )
+        return await artifact_service.load_artifact(app_name=self._tmpl_attrs.get("app_name"), user_id=user_id,
+                                                    session_id=session_id, filename=artifact_id)
+
+    async def list_artifact(self, user_id: str, session_id: str, **kwargs):
+        artifact_service: BaseArtifactService = self._tmpl_attrs["artifact_service"]
+        return await artifact_service.list_artifact_keys(app_name=self._tmpl_attrs.get("app_name"), user_id=user_id,
+                                                         session_id=session_id)
 
     def register_operations(self) -> dict[str, list[str]]:
         """Registers the operations of the ADK application."""
@@ -70,8 +95,14 @@ class CustomAdkApp(reasoning_engines.AdkApp):
                 "list_sessions",
                 "create_session",
                 "delete_session",
-                "load_artifact"
+            ],
+            "async": [
+                "async_get_session",
+                "async_list_sessions",
+                "async_create_session",
+                "async_delete_session",
+                "load_artifact",
             ],
             "stream": ["stream_query_sse", "stream_query", "streaming_agent_run_with_events"],
-            "async_stream": ["async_stream_query_sse", "async_stream_query"],
+            "async_stream": ["async_stream_query", "async_stream_query_sse"],
         }
