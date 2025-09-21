@@ -19,6 +19,7 @@ COPY --from=builder /app/.chainlit/ /app/.chainlit
 COPY --from=builder /app/scripts/ /app/scripts/
 COPY --from=builder /app/chainlit.md /app/
 COPY --from=builder /app/chainlit_ja.md /app/
+COPY --from=builder /app/public /app/public
 COPY --from=builder /app/chatui/ /app/chatui/
 COPY --from=builder /app/main.py /app/
 
