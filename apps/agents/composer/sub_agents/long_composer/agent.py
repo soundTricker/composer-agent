@@ -64,8 +64,6 @@ Read data from session state with key 'music_plan_raw' and format'
 
 class LongComposerFlowAgent(BaseAgent):
 
-    audio_byte_array: bytearray = bytearray()
-
     async def _run_async_impl(
       self, ctx: InvocationContext
   ) -> AsyncGenerator[Event, None]:
@@ -101,7 +99,7 @@ class LongComposerFlowAgent(BaseAgent):
         music_plan = MusicPlan.model_validate(music_plan_dict)
 
         initial = True
-
+        audio_byte_array = bytearray()
         async def receive_audio(session: AsyncMusicSession):
             """Example background task to process incoming audio."""
 
@@ -117,7 +115,7 @@ class LongComposerFlowAgent(BaseAgent):
 
                     if message.server_content:
                         audio_data = message.server_content.audio_chunks[0].data
-                        self.audio_byte_array.extend(audio_data)
+                        audio_byte_array.extend(audio_data)
                     elif message.filtered_prompt:
                         logger.info(f"Prompt was filtered out: {message.filtered_prompt}")
                     else:
@@ -160,11 +158,11 @@ class LongComposerFlowAgent(BaseAgent):
             await session.pause()
 
         logger.info("save audio")
-        return await self.save_audio(ctx)
+        return await self.save_audio(ctx, audio_byte_array)
 
 
-    async def save_audio(self, ctx: InvocationContext) -> types.Content:
-        audio_segment = AudioSegment.from_raw(io.BytesIO(self.audio_byte_array), sample_width=2, frame_rate=48000, channels=2)
+    async def save_audio(self, ctx: InvocationContext, audio_byte_array: bytearray) -> types.Content:
+        audio_segment = AudioSegment.from_raw(io.BytesIO(audio_byte_array), sample_width=2, frame_rate=48000, channels=2)
 
         part = types.Part.from_bytes(data=convert_mp3(audio_segment), mime_type="audio/mp3")
 

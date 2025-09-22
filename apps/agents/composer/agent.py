@@ -9,8 +9,8 @@ from google.adk.tools.agent_tool import AgentTool
 from google.genai import types
 
 from .prompts import instructions
-from .sub_agents.composer.agent import root_agent as composer_agent
 from .sub_agents.long_composer.agent import root_agent as long_composer_agent
+
 if "GOOGLE_CLOUD_AGENT_ENGINE_ID" in os.environ:
     # run on agent engine
     import google.cloud.logging
@@ -27,10 +27,12 @@ async def load_artifact(callback_context: CallbackContext, llm_response: LlmResp
     if not callback_context.state.get("music_artifact_list"):
         logger.info("No music artifacts to load")
         return llm_response
+
     if llm_response.content and llm_response.content.parts:
         for part in llm_response.content.parts:
             if part.text and "<artifact>" in part.text:
                 logger.info("Found artifact tag in response")
+                callback_context.state.update({"music_artifact_list": None})
                 return llm_response
 
     parts_new = copy.deepcopy(llm_response.content.parts)
@@ -57,10 +59,10 @@ async def load_artifact(callback_context: CallbackContext, llm_response: LlmResp
 
 
 root_agent = Agent(
-    model='gemini-2.5-flash-lite',
+    model='gemini-2.5-flash',
     name='root_agent',
     description='A helpful assistant for user questions.',
     instruction=instructions(),
-    tools=[AgentTool(composer_agent), AgentTool(long_composer_agent)],
+    tools=[AgentTool(long_composer_agent)],
     after_model_callback=load_artifact
 )
